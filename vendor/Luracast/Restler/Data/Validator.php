@@ -1,4 +1,5 @@
 <?php
+
 namespace Luracast\Restler\Data;
 
 use Luracast\Restler\CommentParser;
@@ -17,12 +18,24 @@ use Luracast\Restler\Util;
  * @copyright  2010 Luracast
  * @license    http://www.opensource.org/licenses/lgpl-license.php LGPL
  * @link       http://luracast.com/products/restler/
- * @version    3.0.0rc5
+ * @version    3.0.0rc6
  */
 class Validator implements iValidate
 {
     public static $holdException = false;
     public static $exceptions = array();
+
+    public static $preFilters = array(
+        //'*'            => 'some_global_filter', //applied to all parameters
+        'string' => 'trim', //apply filter function by type (string)
+        //'string'       => 'strip_tags',
+        //'string'       => 'htmlspecialchars',
+        //'int'          => 'abs',
+        //'float'        => 'abs',
+        //'CustomClass'  => 'MyFilterClass::custom',
+        //                  please note that you wont get an instance
+        //                  of CustomClass. you will get an array instead
+    );
 
     /**
      * Validate alphabetic characters.
@@ -46,6 +59,29 @@ class Validator implements iValidate
             return preg_replace("/[^a-z]/i", "", $input);
         }
         throw new Invalid('Expecting only alphabetic characters.');
+    }
+
+    /**
+     * Validate UUID strings.
+     *
+     * Check that given value contains only alpha numeric characters and the length is 36 chars.
+     *
+     * @param                $input
+     * @param ValidationInfo $info
+     *
+     * @return string
+     *
+     * @throws Invalid
+     */
+    public static function uuid($input, ValidationInfo $info = null)
+    {
+        if (is_string($input) && preg_match(
+                '/^\{?[0-9a-f]{8}\-?[0-9a-f]{4}\-?[0-9a-f]{4}\-?[0-9a-f]{4}\-?[0-9a-f]{12}\}?$/i',
+                $input
+            )) {
+            return strtolower($input);
+        }
+        throw new Invalid('Expecting a Universally Unique IDentifier (UUID) string.');
     }
 
     /**
@@ -117,6 +153,25 @@ class Validator implements iValidate
     }
 
     /**
+     * Color specified as hexadecimals
+     *
+     * Check that given value contains only color.
+     *
+     * @param                     $input
+     * @param ValidationInfo|null $info
+     *
+     * @return string
+     * @throws Invalid
+     */
+    public static function color($input, ValidationInfo $info = null)
+    {
+        if (preg_match('/^#[a-f0-9]{6}$/i', $input)) {
+            return $input;
+        }
+        throw new Invalid('Expecting color as hexadecimal digits.');
+    }
+
+    /**
      * Validate Telephone number
      *
      * Check if the given value is numeric with or without a `+` prefix
@@ -174,8 +229,9 @@ class Validator implements iValidate
     public static function ip($input, ValidationInfo $info = null)
     {
         $r = filter_var($input, FILTER_VALIDATE_IP);
-        if ($r)
+        if ($r) {
             return $r;
+        }
 
         throw new Invalid('Expecting IP address in IPV6 or IPV4 format');
     }
@@ -360,6 +416,20 @@ class Validator implements iValidate
     {
         $html = Scope::get('Restler')->responseFormat instanceof HtmlFormat;
         $name = $html ? "<strong>$info->label</strong>" : "`$info->name`";
+        if (
+            isset(static::$preFilters['*']) &&
+            is_scalar($input) &&
+            is_callable($func = static::$preFilters['*'])
+        ) {
+            $input = $func($input);
+        }
+        if (
+            isset(static::$preFilters[$info->type]) &&
+            (is_scalar($input) || !empty($info->children)) &&
+            is_callable($func = static::$preFilters[$info->type])
+        ) {
+            $input = $func($input);
+        }
         try {
             if (is_null($input)) {
                 if ($info->required) {
@@ -410,7 +480,10 @@ class Validator implements iValidate
             }
 
             if (isset ($info->choice)) {
-                if (is_array($input)) {
+                if (!$info->required && empty($input)) {
+                    //since its optional, and empty let it pass.
+                    $input = null;
+                } elseif (is_array($input)) {
                     foreach ($input as $i) {
                         if (!in_array($i, $info->choice)) {
                             $error .= ". Expected one of (" . implode(',', $info->choice) . ").";
@@ -424,6 +497,10 @@ class Validator implements iValidate
             }
 
             if (method_exists($class = get_called_class(), $info->type) && $info->type != 'validate') {
+                if (!$info->required && empty($input)) {
+                    //optional parameter with a empty value assume null
+                    return null;
+                }
                 try {
                     return call_user_func("$class::$info->type", $input, $info);
                 } catch (Invalid $e) {
@@ -470,6 +547,9 @@ class Validator implements iValidate
                     return $r;
 
                 case 'string' :
+                case 'password' : //password fields with string
+                case 'search' : //search field with string
+                    if (is_bool($input)) $input = $input ? 'true' : 'false';
                     if (!is_string($input)) {
                         $error .= '. Expecting alpha numeric value';
                         break;
@@ -501,17 +581,36 @@ class Validator implements iValidate
 
                 case 'bool':
                 case 'boolean':
-                    if ($input === 'true' || $input === true) return true;
-                    if (is_numeric($input)) return $input > 0;
-                    return false;
-
+                    if (is_bool($input)) {
+                        return $input;
+                    }
+                    if (is_numeric($input)) {
+                        if ($input == 1) {
+                            return true;
+                        }
+                        if ($input == 0) {
+                            return false;
+                        }
+                    } elseif (is_string($input)) {
+                        switch (strtolower($input)) {
+                            case 'true':
+                                return true;
+                            case 'false':
+                                return false;
+                        }
+                    }
+                    if ($info->fix) {
+                        return $input ? true : false;
+                    }
+                    $error .= '. Expecting boolean value';
+                    break;
                 case 'array':
                     if ($info->fix && is_string($input)) {
                         $input = explode(CommentParser::$arrayDelimiter, $input);
                     }
                     if (is_array($input)) {
                         $contentType =
-                            Util::nestedValue($info, 'contentType') ? : null;
+                            Util::nestedValue($info, 'contentType') ?: null;
                         if ($info->fix) {
                             if ($contentType == 'indexed') {
                                 $input = $info->filterArray($input, true);
@@ -555,6 +654,8 @@ class Validator implements iValidate
                             $name = $info->name;
                             $info->type = $contentType;
                             unset($info->contentType);
+                            unset($info->min);
+                            unset($info->max);
                             foreach ($input as $key => $chinput) {
                                 $info->name = "{$name}[$key]";
                                 $input[$key] = static::validate($chinput, $info);
@@ -602,13 +703,13 @@ class Validator implements iValidate
                             }
                             foreach ($info->children as $key => $value) {
                                 $cv = new ValidationInfo($value);
+                                $cv->name = "{$info->name}[$key]";
                                 if (array_key_exists($key, $input) || $cv->required) {
                                     $instance->{$key} = static::validate(
                                         Util::nestedValue($input, $key),
                                         $cv
                                     );
                                 }
-
                             }
                         }
                         return $instance;
@@ -616,7 +717,7 @@ class Validator implements iValidate
             }
             throw new RestException (400, $error);
         } catch (\Exception $e) {
-            static::$exceptions[] = $e;
+            static::$exceptions[$info->name] = $e;
             if (static::$holdException) {
                 return null;
             }

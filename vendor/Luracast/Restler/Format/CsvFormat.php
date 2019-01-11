@@ -15,7 +15,7 @@ use Luracast\Restler\RestException;
  * @copyright  2010 Luracast
  * @license    http://www.opensource.org/licenses/lgpl-license.php LGPL
  * @link       http://luracast.com/products/restler/
- * @version    3.0.0rc5
+ * @version    3.0.0rc6
  */
 class CsvFormat extends Format implements iDecodeStream
 {
@@ -44,9 +44,9 @@ class CsvFormat extends Format implements iDecodeStream
      */
     public function encode($data, $humanReadable = false)
     {
-        $char               = Obj::$separatorChar;
+        $char = Obj::$separatorChar;
         Obj::$separatorChar = false;
-        $data               = Obj::toArray($data);
+        $data = Obj::toArray($data);
         Obj::$separatorChar = $char;
         if (is_array($data) && array_values($data) == $data) {
             //if indexed array
@@ -109,9 +109,9 @@ class CsvFormat extends Format implements iDecodeStream
         while (($row = static::getRow(array_shift($lines), $keys)) !== FALSE)
             $decoded [] = $row;
 
-        $char               = Obj::$separatorChar;
+        $char = Obj::$separatorChar;
         Obj::$separatorChar = false;
-        $decoded            = Obj::toArray($decoded);
+        $decoded = Obj::toArray($decoded);
         Obj::$separatorChar = $char;
         return $decoded;
     }
@@ -172,9 +172,9 @@ class CsvFormat extends Format implements iDecodeStream
         while (($row = static::getRow(stream_get_line($stream, 0, PHP_EOL), $keys)) !== FALSE)
             $decoded [] = $row;
 
-        $char               = Obj::$separatorChar;
+        $char = Obj::$separatorChar;
         Obj::$separatorChar = false;
-        $decoded            = Obj::toArray($decoded);
+        $decoded = Obj::toArray($decoded);
         Obj::$separatorChar = $char;
         return $decoded;
     }

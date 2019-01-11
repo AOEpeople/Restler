@@ -37,8 +37,8 @@ Footer:
 */
 
 use Luracast\Restler\Defaults;
+use Luracast\Restler\Explorer;
 use Luracast\Restler\Filter\RateLimit;
-use Luracast\Restler\Restler;
 
 require_once '../../../vendor/restler.php';
 //reuse the SessionDB from CRUD Example
@@ -49,10 +49,12 @@ Defaults::$cacheClass = 'SessionCache';
 //set extreme value for quick testing
 RateLimit::setLimit('hour', 10);
 
+Explorer\v2\Explorer::$hideProtected = false;
+
 $r = new Restler();
 
 $r->addAPIClass('ratelimited\\Authors');
-$r->addAPIClass('Resources');
+$r->addAPIClass('Explorer');
 $r->addFilterClass('RateLimit');
 $r->addAuthenticationClass('KeyAuth');
 $r->handle();

@@ -15,7 +15,7 @@ use stdClass;
  * @copyright  2010 Luracast
  * @license    http://www.opensource.org/licenses/lgpl-license.php LGPL
  * @link       http://luracast.com/products/restler/
- * @version    3.0.0rc5
+ * @version    3.0.0rc6
  */
 class Resources implements iUseAuthentication, iProvideMultiVersionApi
 {
@@ -317,7 +317,7 @@ class Resources implements iUseAuthentication, iProvideMultiVersionApi
                 if (isset($m['throws'])) {
                     foreach ($m['throws'] as $exception) {
                         $operation->errorResponses[] = array(
-                            'reason' => $exception['reason'],
+                            'reason' => $exception['message'],
                             'code' => $exception['code']);
                     }
                 }
@@ -370,7 +370,7 @@ class Resources implements iUseAuthentication, iProvideMultiVersionApi
 
                 if (static::$groupOperations) {
                     foreach ($r->apis as $a) {
-                        if ($a->path == "/$fullPath") {
+                        if ($a->path == "$prefix/$fullPath") {
                             $api = $a;
                             break;
                         }
@@ -774,14 +774,14 @@ class Resources implements iUseAuthentication, iProvideMultiVersionApi
                     $this->_model($itemType);
                     $itemType = $this->_noNamespace($itemType);
                 }
-                $properties[$key]['item'] = array(
+                $properties[$key]['items'] = array(
                     'type' => $itemType,
                     /*'description' => '' */ //TODO: add description
                 );
             } else if (preg_match('/^Array\[(.+)\]$/', $type, $matches)) {
                 $itemType = $matches[1];
                 $properties[$key]['type'] = 'Array';
-                $properties[$key]['item']['type'] = $itemType;
+                $properties[$key]['items']['type'] = $this->_noNamespace($itemType);
 
                 if (class_exists($itemType)) {
                     $this->_model($itemType);
