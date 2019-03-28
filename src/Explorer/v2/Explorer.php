@@ -244,7 +244,13 @@ class Explorer implements iProvideMultiVersionApi
         if (empty($base)) {
             $base = 'root';
         }
-        $r->tags = array($base);
+        if (isset($route['metadata']['resourcePath']) && !empty($route['metadata']['resourcePath'])) {
+            $r->tags = array($route['metadata']['resourcePath']);
+        } elseif (isset($route['path']) && !empty($route['path'])) {
+            $r->tags = array($route['path']);
+        } else {
+            $r->tags = array($base);
+        }
         $r->parameters = $this->parameters($route);
 
 
