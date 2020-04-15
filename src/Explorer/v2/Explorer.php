@@ -181,6 +181,7 @@ class Explorer implements iProvideMultiVersionApi
     }
 
     /**
+     * @url GET swagger.json
      * @return stdClass
      */
     public function swagger()
